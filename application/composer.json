@@ -1,0 +1,5 @@
+{
+    "require": {
+        "skyeng/php-lemmatizer": "^1.0"
+    }
+}
