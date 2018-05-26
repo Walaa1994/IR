@@ -42,8 +42,8 @@
       <!--content of search result  -->
       <?php foreach ($output as $key =>$value) {?>
            <div class="content-row">
-           <a href="#"><?php echo $key;?></a>
-           <p><?php echo $value?></p>
+           <a href='<?php echo base_url().$value['path']; ?>'><?php echo $value['path'];?></a>
+           <p><?php echo $value['sim']?></p>
            </div>
       <?php }?>
       <!-- <div class="content-row">
