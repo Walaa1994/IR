@@ -101,7 +101,7 @@ class Token extends CI_Controller {
 	}
 
 	//execute tfidf rule for a query
-	function queryTfidf($query="gold silver truck") {
+	function queryTfidf($query) {
 		$this->load->model('doc_model');
 		$s = new Stemmer();
 		$lemmatizer = new Lemmatizer();
@@ -123,7 +123,12 @@ class Token extends CI_Controller {
 		foreach ($values as $term => $frq) {
 			$value=$this->doc_model->get_term_id($term);
 			/////////////////////////attention////////////////////////////////
-			$q[$value->termID]=($frq/$max)*log(3 / $this->doc_model->get_df($value->termID), 2);
+			if ($value != null) {
+				$q[$value->termID]=($frq/$max)*log(3 / $this->doc_model->get_df($value->termID), 2);
+			}
+			else{
+				$q[0]=0;
+			};
 		}
 		//var_dump($q);
 		return $q;
@@ -166,14 +171,16 @@ class Token extends CI_Controller {
 
 	//execution function
 	public function execute (){
-		$query=$this->queryTfidf();
+		$query=$this->queryTfidf($this->input->post('query_text'));
 		for ($docID=0; $docID <4 ; $docID++) { 
 		 	$doc=$this->getTfidf($docID);
 			$matchDocs[$docID]=$this->cosineSim($query,$doc);
 		 } 
 		arsort($matchDocs); // sort matching files from high to low
 
-		var_dump($matchDocs);
+		/*var_dump($matchDocs);*/
+		$data['output']=$matchDocs;
+		$this->load->view('result_page',$data);
 	}
 
 	function Index() {
@@ -211,7 +218,7 @@ class Token extends CI_Controller {
 			for ($i=0; $i <sizeof($removedStopWords) ; $i++) { 
 				$removedStopWords[$i]=$this->doc_model->check_lookup($removedStopWords[$i]);
 			}
-			var_dump($removedStopWords);
+			/*var_dump($removedStopWords);*/
 			$fileStemString=$s->stem_list($removedStopWords);
 
 			foreach ($fileStemString as $key => $value1) {
