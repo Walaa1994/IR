@@ -1,9 +1,10 @@
 <?php
+
 class File_model extends CI_Model {
-	public function add_file($file_name)
+	public function add_file($file_path)
 	{
 		$file=array(
-			'file_path'=>'./uploads/'.$file_name);
+			'file_path'=>$file_path);
 		$this->db->insert('file',$file);
 	}
 
@@ -12,20 +13,6 @@ class File_model extends CI_Model {
 		$this->db->select('*');
 		$this->db->from('file');
 		$query=$this->db->get();
-		return $query->result();
+		return $query->result_array();
 	}
-
-	/*
-	public function store()
-	{
-		for ($i=1; $i <424 ; $i++) { 
-			$file=array(
-			'file_path'=>'./uploads/'.$i.'.txt',
-			'active'=>1
-			);
-			$this->db->insert('file',$file);
-		}
-		
-	}
-	*/
 }

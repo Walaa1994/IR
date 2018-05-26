@@ -1,6 +1,6 @@
 <?php
 ini_set('memory_limit', '-1'); 
-ini_set('max_execution_time', 300);
+ini_set('max_execution_time', 0);
 use Skyeng\Lemmatizer;
 use Skyeng\Lemma;
 include(APPPATH.'controllers/stemmer.php');
@@ -8,7 +8,6 @@ include(APPPATH.'controllers/stemmer.php');
 class Token extends CI_Controller {
 	//tokenizer function split text into words and convert all letters to small letters
 	public function tokenizer($text=null){
-		//$text="Looks look at this, I GO to schools in 3/3/2018 U.S";
 		/*$result_capital = preg_split('/((^\p{P}+)|(\p{P}*\s+\p{P}*)|(\p{P}+$)|([\s\-_,:;?!\/\(\)\[\]{}<>\r\n"]|(?<!\d)\.(?!\d)))/', $text,-1, PREG_SPLIT_NO_EMPTY);*/
 		$result_capital = explode(" ",$text);
 		$result_small=array();
@@ -33,8 +32,8 @@ class Token extends CI_Controller {
 		$lemmatizer = new Lemmatizer();
 		
 		//get all corpus file
-	    $this->load->model('file_model');
-		$files=$this->file_model->get_files();
+	    $this->load->model('doc_model');
+		$files=$this->doc_model->get_docs();
 
 		//Dictionary structure is an array(term=>array('df'=>int,'posting'=>array(docID=>array('tf'=>int))))
 	    $dictionary = array();
@@ -46,30 +45,33 @@ class Token extends CI_Controller {
 	    //handles files(tokenize,remove stop word, stemming, lemmatization)
 	    foreach($files as $value) {
 	    	//tokenization
-			$content=file_get_contents($value->file_path);
+	    	$terms=null;
+			$content=file_get_contents($value->docPath);
 			$tokens=$this->tokenizer($content);
+			for ($i=0; $i <sizeof($tokens) ; $i++) { 
+				$tokens[$i]=$this->doc_model->check_lookup($tokens[$i]);
+			}
 			$removedStopWords=$this->removeStopWords($tokens);
 			$fileStemString=$s->stem_list($removedStopWords);
 			foreach ($fileStemString as $key => $value1) {
 				$lemma=$lemmatizer->getOnlyLemmas($value1);
 				$terms[$key] = $lemma[0];
 			}
+			//here we go over words of document
 			foreach($terms as $key=>$term) {
 	        	if (is_array ($term)) {
 	        		$term=array_values($term)[0];
-	        }
-			$docID=$value->file_id;
-	        $documents[$docID]=$terms;
-	        $docCount[$docID] = count($terms);
+	        	}
+	        	$term=$this->doc_model->check_lookup($term);
+				$docID=$value->docID;
 		
 				//from here we fill the index
 	    		//new term (first time in dictionary)
 	            if(!isset($dictionary[$term])) {
-	                    $dictionary[$term] = array('df' => 0, 'postings' => array());
+	                    $dictionary[$term] = array('postings' => array());
 	            }
 	            //existing term but appear in new document
 	            if(!isset($dictionary[$term]['postings'][$docID])) {
-	                    $dictionary[$term]['df']++;
 	                    $dictionary[$term]['postings'][$docID] = array('tf' => 0);
 	            }
 	            //existing term appear in existing previous document so we increment the tf
@@ -77,27 +79,30 @@ class Token extends CI_Controller {
 	        }
 	    }
 
-	    $index=array('documents'=>$documents,'docCount' => $docCount, 'dictionary' => $dictionary);
-	    return $index;
+	    $index=array('dictionary' => $dictionary);
+	    $this->doc_model->index_docs($index);
+	    $this->doc_model->convert_to_indexing($files);
+	    echo "ok";
 	}
 
 	//execute tfidf rule for a document
-	function getTfidf($index,$docID) {
+	function getTfidf($docID) {
 	    //count of all documents in the corpus
-	    $docCount = count($index['docCount']);
-	    $doc=$index['documents'][$docID];
+	    $this->load->model('doc_model');
+	    $docCount = $this->doc_model->corpus_docs_count();
+	    $doc=$this->doc_model->get_doc_terms($docID);
 	    $d=array();
-	    foreach ($doc as $term) {
-        	if (is_array ($term)) 
-        		$term=array_values($term)[0];
-	        
-	    	$d[$term]=$index['dictionary'][$term]['postings'][$docID]['tf'] * log($docCount / $index['dictionary'][$term]['df'], 2);
+	    foreach ($doc as $value) {	
+	    ////////////////////////////////attention////////////////////        
+	    	$d[$value->termID]=$value->tf * log(3 / $this->doc_model->get_df($value->termID), 2);
 	    }
+	    //var_dump($d);
 	    return $d;
 	}
 
 	//execute tfidf rule for a query
-	function queryTfidf($index,$query) {
+	function queryTfidf($query="gold silver truck") {
+		$this->load->model('doc_model');
 		$s = new Stemmer();
 		$lemmatizer = new Lemmatizer();
 		$tokens=$this->tokenizer($query);
@@ -111,18 +116,21 @@ class Token extends CI_Controller {
 				$terms[$key]=array_values($terms[$key])[0];
 			}
 		}
-		$docCount = count($index['docCount']);
+		$docCount = $this->doc_model->corpus_docs_count();
 		$max=$this->maxFreq($terms);
 		$q=array();
 		$values = array_count_values($terms);
 		foreach ($values as $term => $frq) {
-			$q[$term]=($frq/$max)*log($docCount / $index['dictionary'][$term]['df'], 2);
+			$value=$this->doc_model->get_term_id($term);
+			/////////////////////////attention////////////////////////////////
+			$q[$value->termID]=($frq/$max)*log(3 / $this->doc_model->get_df($value->termID), 2);
 		}
+		//var_dump($q);
 		return $q;
 	}
 
 	//calculate the length of document or query (vertor length)
-	function normalise($doc) {
+	function length($doc) {
 		$total=0;
 	    foreach($doc as $entry) {
 	            $total += $entry*$entry;
@@ -135,12 +143,12 @@ class Token extends CI_Controller {
 	function cosineSim($query,$doc) {
 	    $result = 0;
 	    $numerator=0;
-	    foreach($query as $term => $tfidf) {
-	    	if (array_key_exists($term,$doc)){
-	            $numerator += $tfidf * $doc[$term];
+	    foreach($query as $term_id => $tfidf) {
+	    	if (array_key_exists($term_id,$doc)){
+	            $numerator += $tfidf * $doc[$term_id];
 	    	}
 	    }
-	    $denominator =$this->normalise($query)*$this->normalise($doc);
+	    $denominator =$this->length($query)*$this->length($doc);
 	    if ($denominator != 0) {
 	    	$result=$numerator/$denominator;
 	    }
@@ -158,17 +166,89 @@ class Token extends CI_Controller {
 
 	//execution function
 	public function execute (){
-		$q="KENNEDY ADMINISTRATION PRESSURE ON NGO DINH DIEM TO STOP SUPPRESSING THE BUDDHISTS";
-		$index=$this->getIndex();
-		$query=$this->queryTfidf($index,$q);
-		$docs=$index['documents'];
-		foreach ($docs as $docID => $value) {
-			$doc=$this->getTfidf($index,$docID);
+		$query=$this->queryTfidf();
+		for ($docID=0; $docID <4 ; $docID++) { 
+		 	$doc=$this->getTfidf($docID);
 			$matchDocs[$docID]=$this->cosineSim($query,$doc);
-		}
-
+		 } 
 		arsort($matchDocs); // sort matching files from high to low
 
 		var_dump($matchDocs);
+	}
+
+	function Index() {
+	    //this statement for lemmatize
+	    require_once APPPATH . "/vendor/autoload.php";
+	    $s = new Stemmer();
+		$lemmatizer = new Lemmatizer();
+		
+		//get all corpus file
+	    $this->load->model('doc_model');
+		//$files=$this->doc_model->get_docs();
+		$files = array(
+                1 => 'shipment of gold damaged in a fire $',
+                2 => 'delivery of silver arrived in a silver truck cad',
+                3 => 'on Sat shipment of gold arrived in a truck '
+        );
+
+		//Dictionary structure is an array(term=>array('df'=>int,'posting'=>array(docID=>array('tf'=>int))))
+	    $dictionary = array();
+	    //docCount= array(docID=>number of its words after tokenize,remove stop word, stemming, lemmatization)
+	    $docCount = array();
+	    //documents=array(docID=>content of this document)
+	    $documents=array();
+
+	    //handles files(tokenize,remove stop word, stemming, lemmatization)
+	    foreach($files as $key1=>$value) {
+	    	//tokenization
+	    	$terms=null;
+			//$content=file_get_contents($value->docPath);
+			$tokens=$this->tokenizer($value);
+			for ($i=0; $i <sizeof($tokens) ; $i++) { 
+				$tokens[$i]=$this->doc_model->check_lookup($tokens[$i]);
+			}
+			$removedStopWords=$this->removeStopWords($tokens);
+
+			$fileStemString=$s->stem_list($removedStopWords);
+			
+			foreach ($fileStemString as $key => $value1) {
+				$lemma=$lemmatizer->getOnlyLemmas($value1);
+				$terms[$key] = $lemma[0];
+			}
+			//here we go over words of document
+			foreach($terms as $key=>$term) {
+	        	if (is_array ($term)) {
+	        		$term=array_values($term)[0];
+	        	}
+	        	
+				$docID=$key1;
+		        $documents[$docID]=$terms;
+		        $docCount[$docID] = count($terms);
+		
+				//from here we fill the index
+	    		//new term (first time in dictionary)
+	            if(!isset($dictionary[$term])) {
+	                    $dictionary[$term] = array('postings' => array());
+	            }
+	            //existing term but appear in new document
+	            if(!isset($dictionary[$term]['postings'][$docID])) {
+	                    $dictionary[$term]['postings'][$docID] = array('tf' => 0);
+	            }
+	            //existing term appear in existing previous document so we increment the tf
+	            $dictionary[$term]['postings'][$docID]['tf']++;
+	        }
+	    }
+
+	    $index=array('documents'=>$documents,'docCount' => $docCount, 'dictionary' => $dictionary);
+	    $this->doc_model->index_docs($index);
+	    //$this->doc_model->convert_to_indexing($files);
+	    echo "ok";
+	}
+
+	public function test()
+	{
+		$this->load->model('doc_model');
+		$term=$this->doc_model->check_lookup('$');
+		echo $term;
 	}
 }
