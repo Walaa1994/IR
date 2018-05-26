@@ -7,13 +7,13 @@ class Doc_model extends CI_Model {
 			'size'=>$size,
 			'indexing'=>0
 			);
-		$this->db->insert('doc',$doc);
+		$this->db->insert('document',$doc);
 	}
 
 	public function get_docs()
 	{
 		$this->db->select('*');
-		$this->db->from('doc');
+		$this->db->from('document');
 		//لا تنسي تعدلي هون و تحولي لصفر
 		$this->db->where('indexing',1);
 		$query=$this->db->get();
@@ -23,7 +23,7 @@ class Doc_model extends CI_Model {
 	public function get_unindex_doc_size()
 	{
 		$this->db->select('size');
-		$this->db->from('doc');
+		$this->db->from('document');
 		$this->db->where('indexing',0);
 		$query=$this->db->get();
 		$result=$query->result();
@@ -37,7 +37,7 @@ class Doc_model extends CI_Model {
 	public function get_index_doc_size()
 	{
 		$this->db->select('size');
-		$this->db->from('doc');
+		$this->db->from('document');
 		$this->db->where('indexing',1);
 		$query=$this->db->get();
 		$result=$query->result();
@@ -76,7 +76,7 @@ class Doc_model extends CI_Model {
 
 	public function corpus_docs_count()
 	{
-		$this->db->from('doc');
+		$this->db->from('document');
 		//here we count just indexed files
 		$this->db->where('indexing',1);
 		$query=$this->db->get();
