@@ -157,7 +157,16 @@ class Doc_model extends CI_Model {
 		return $query->row();
 	}
 
-	public function store()
+	public function get_doc_path($docID)
+	{
+		$this->db->select('docPath');
+		$this->db->from('document');
+		$this->db->where('docID',$docID);
+		$query=$this->db->get();
+		return $query->row();
+	}
+
+	/*public function store()
 	{
 		for ($i=1; $i <424 ; $i++) { 
 			$file_path='./uploads/'.$i.'.txt';
@@ -169,5 +178,5 @@ class Doc_model extends CI_Model {
 			);
 			$this->db->insert('document',$file);
 		}		
-	}	
+	}*/	
 }

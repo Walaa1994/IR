@@ -37,10 +37,6 @@ class Token extends CI_Controller {
 
 		//Dictionary structure is an array(term=>array('df'=>int,'posting'=>array(docID=>array('tf'=>int))))
 	    $dictionary = array();
-	    //docCount= array(docID=>number of its words after tokenize,remove stop word, stemming, lemmatization)
-	    $docCount = array();
-	    //documents=array(docID=>content of this document)
-	    $documents=array();
 
 	    //handles files(tokenize,remove stop word, stemming, lemmatization)
 	    foreach($files as $value) {
@@ -93,8 +89,7 @@ class Token extends CI_Controller {
 	    $doc=$this->doc_model->get_doc_terms($docID);
 	    $d=array();
 	    foreach ($doc as $value) {	
-	    ////////////////////////////////attention////////////////////        
-	    	$d[$value->termID]=$value->tf * log(3 / $this->doc_model->get_df($value->termID), 2);
+	    	$d[$value->termID]=$value->tf * log($docCount / $this->doc_model->get_df($value->termID), 2);
 	    }
 	    //var_dump($d);
 	    return $d;
@@ -122,14 +117,12 @@ class Token extends CI_Controller {
 		$values = array_count_values($terms);
 		foreach ($values as $term => $frq) {
 			$value=$this->doc_model->get_term_id($term);
-			/////////////////////////attention////////////////////////////////
 			if ($value != null) {
-				$q[$value->termID]=($frq/$max)*log(3 / $this->doc_model->get_df($value->termID), 2);
+				$q[$value->termID]=($frq/$max)*log($docCount / $this->doc_model->get_df($value->termID), 2);
 			}
 			else{
 				$q[0]=0;
-			}
-			
+			};
 		}
 		//var_dump($q);
 		return $q;
@@ -172,19 +165,20 @@ class Token extends CI_Controller {
 
 	//execution function
 	public function execute (){
-		$query="gold silver truck";
-		$query=$this->queryTfidf($query);
-		//exchange 4 with count of corpus docs there is function in model
-		for ($docID=1; $docID <4 ; $docID++) { 
+		$this->load->model('doc_model');
+		$query=$this->queryTfidf($this->input->post('query_text'));
+		$docCount = $this->doc_model->corpus_docs_count();
+		for ($docID=1; $docID <= $docCount ; $docID++) { 
 		 	$doc=$this->getTfidf($docID);
-			$matchDocs[$docID]=$this->cosineSim($query,$doc);
+		 	$path=$this->doc_model->get_doc_path($docID)->docPath;
+			$matchDocs[$docID]=array('sim'=>$this->cosineSim($query,$doc),'path'=>$path);
 		 } 
 		arsort($matchDocs); // sort matching files from high to low
-
-		var_dump($matchDocs);
+		$data['output']=$matchDocs;
+		$this->load->view('result_page',$data);
 	}
 
-	function Index() {
+	/*function Index() {
 	    //this statement for lemmatize
 	    require_once APPPATH . "/vendor/autoload.php";
 	    $s = new Stemmer();
@@ -194,9 +188,9 @@ class Token extends CI_Controller {
 	    $this->load->model('doc_model');
 		//$files=$this->doc_model->get_docs();
 		$files = array(
-                1 => 'shipment of gold damaged in a fire',
-                2 => 'delivery of silver arrived in a silver truck',
-                3 => 'on shipment of gold arrived in a truck '
+                1 => 'shipment of gold damaged in a fire $',
+                2 => 'delivery of silver arrived in a silver truck cad',
+                3 => 'on Sat shipment of gold arrived in a truck '
         );
 
 		//Dictionary structure is an array(term=>array('df'=>int,'posting'=>array(docID=>array('tf'=>int))))
@@ -219,7 +213,7 @@ class Token extends CI_Controller {
 			for ($i=0; $i <sizeof($removedStopWords) ; $i++) { 
 				$removedStopWords[$i]=$this->doc_model->check_lookup($removedStopWords[$i]);
 			}
-			var_dump($removedStopWords);
+			/*var_dump($removedStopWords);
 			$fileStemString=$s->stem_list($removedStopWords);
 
 			foreach ($fileStemString as $key => $value1) {
@@ -261,5 +255,5 @@ class Token extends CI_Controller {
 		$this->load->model('doc_model');
 		$term=$this->doc_model->check_lookup('$');
 		echo $term;
-	}
+	}*/
 }
