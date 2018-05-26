@@ -208,9 +208,12 @@ class Token extends CI_Controller {
 				$tokens[$i]=$this->doc_model->check_lookup($tokens[$i]);
 			}
 			$removedStopWords=$this->removeStopWords($tokens);
-
+			for ($i=0; $i <sizeof($removedStopWords) ; $i++) { 
+				$removedStopWords[$i]=$this->doc_model->check_lookup($removedStopWords[$i]);
+			}
+			var_dump($removedStopWords);
 			$fileStemString=$s->stem_list($removedStopWords);
-			
+
 			foreach ($fileStemString as $key => $value1) {
 				$lemma=$lemmatizer->getOnlyLemmas($value1);
 				$terms[$key] = $lemma[0];
