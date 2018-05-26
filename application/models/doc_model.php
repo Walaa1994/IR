@@ -41,7 +41,7 @@ class Doc_model extends CI_Model {
 		$this->db->where('indexing',1);
 		$query=$this->db->get();
 		$result=$query->result();
-		$size=1537785;
+		$size=0;
 		foreach ($result as $value) {
 			$size+=$value->size;
 		}
@@ -157,19 +157,17 @@ class Doc_model extends CI_Model {
 		return $query->row();
 	}
 
-	
-
-	/*
 	public function store()
 	{
 		for ($i=1; $i <424 ; $i++) { 
+			$file_path='./uploads/'.$i.'.txt';
+			$size=filesize($file_path);
 			$file=array(
-			'file_path'=>'./uploads/'.$i.'.txt',
-			'active'=>1
+			'docPath'=>$file_path,
+			'indexing'=>1,
+			'size'=>$size
 			);
-			$this->db->insert('file',$file);
-		}
-		
-	}
-	*/
+			$this->db->insert('document',$file);
+		}		
+	}	
 }

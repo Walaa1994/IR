@@ -45,8 +45,8 @@ class Upload extends CI_Controller {
 
     public function database()
     {
-        $this->load->model('file_model');
-        $this->file_model->store();
+        $this->load->model('doc_model');
+        $this->doc_model->store();
     }
 }
 ?>

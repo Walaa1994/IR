@@ -101,7 +101,7 @@ class Token extends CI_Controller {
 	}
 
 	//execute tfidf rule for a query
-	function queryTfidf($query="gold silver truck") {
+	function queryTfidf($query) {
 		$this->load->model('doc_model');
 		$s = new Stemmer();
 		$lemmatizer = new Lemmatizer();
@@ -123,7 +123,13 @@ class Token extends CI_Controller {
 		foreach ($values as $term => $frq) {
 			$value=$this->doc_model->get_term_id($term);
 			/////////////////////////attention////////////////////////////////
-			$q[$value->termID]=($frq/$max)*log(3 / $this->doc_model->get_df($value->termID), 2);
+			if ($value != null) {
+				$q[$value->termID]=($frq/$max)*log(3 / $this->doc_model->get_df($value->termID), 2);
+			}
+			else{
+				$q[0]=0;
+			}
+			
 		}
 		//var_dump($q);
 		return $q;
@@ -166,8 +172,10 @@ class Token extends CI_Controller {
 
 	//execution function
 	public function execute (){
-		$query=$this->queryTfidf();
-		for ($docID=0; $docID <4 ; $docID++) { 
+		$query="gold silver truck";
+		$query=$this->queryTfidf($query);
+		//exchange 4 with count of corpus docs there is function in model
+		for ($docID=1; $docID <4 ; $docID++) { 
 		 	$doc=$this->getTfidf($docID);
 			$matchDocs[$docID]=$this->cosineSim($query,$doc);
 		 } 
@@ -186,9 +194,9 @@ class Token extends CI_Controller {
 	    $this->load->model('doc_model');
 		//$files=$this->doc_model->get_docs();
 		$files = array(
-                1 => 'shipment of gold damaged in a fire $',
-                2 => 'delivery of silver arrived in a silver truck cad',
-                3 => 'on Sat shipment of gold arrived in a truck '
+                1 => 'shipment of gold damaged in a fire',
+                2 => 'delivery of silver arrived in a silver truck',
+                3 => 'on shipment of gold arrived in a truck '
         );
 
 		//Dictionary structure is an array(term=>array('df'=>int,'posting'=>array(docID=>array('tf'=>int))))
