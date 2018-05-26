@@ -29,8 +29,8 @@
           </button>
 
           <div class="collapse navbar-collapse navbar-light" id="navbarsExample05">
-                 <label class="btn btn-default btn-file">
-                  Browse <input type="file" style="display: none;">
+                 <label class="btn btn-default btn-file"><a href="<?php echo site_url('Upload/index');?>">
+                  Admin </a>
                    </label>
             
           </div>

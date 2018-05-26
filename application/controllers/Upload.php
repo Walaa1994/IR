@@ -2,15 +2,46 @@
 ob_start();
 include(APPPATH.'controllers/PDF2Text.php');
 class Upload extends CI_Controller {
-
-    public function __construct()
+    function __construct()
     {
-            parent::__construct();
+        parent::__construct();
+     
+        $this->load->database();
+        $this->load->helper('url');
+        /* ------------------ */ 
+         
+        $this->load->library('grocery_CRUD');
+     
     }
 
     public function index()
     {
-            $this->load->view('upload', array('error' => ' ' ));
+        
+        $crud = new grocery_CRUD();
+        $crud->set_table('document');
+        $crud->fields('docPath');
+        $crud->set_field_upload('docPath','uploads');
+        $crud->unset_add();
+        /*$crud->unset_edit();*/
+
+        $output = $crud->render();
+
+        $this->_example_output($output);
+    }
+
+    function _example_output($output = null)
+     
+    {
+    //$this->load->view('template.php',$output);
+        $data['subview'] = 'template.php';
+        $data['output']=$output;    
+        $this->load->view('admin.php',$data);    
+    }
+
+    function add_file(){
+        $data['subview'] = 'upload.php';
+        $data['output']='';    
+        $this->load->view('admin.php',$data);
     }
 
     //upload pdf file and extract its contents and put them in the text file in the corpus
@@ -40,6 +71,8 @@ class Upload extends CI_Controller {
                $token = new Token();
                $token->getIndex();
             }
+            //call grid page
+            $this->index();
         }      
     }
 
